@@ -1,0 +1,855 @@
+alias chosen_color = global.team[0]
+alias temp_num = global.number[1]
+alias temp_num2 = global.number[2]
+alias temp_obj = global.object[1]
+
+alias drawer = global.player[0]
+declare drawer with network priority high
+
+alias correct_zone = global.object[0]
+alias game_started = global.number[0]
+declare game_started = 0
+alias start_timer = global.timer[1]
+declare start_timer = 10
+alias announce_timer = player.timer[0]
+declare player.announce_timer = 5
+alias player_announced = player.number[0]
+alias drawn = player.number[2]
+declare player.drawn = 1
+alias time_correct = player.timer[1]
+declare player.time_correct = 1
+alias zone_answer = object.number[0]
+
+alias leading_player = global.player[1]
+declare leading_player with network priority high
+alias last_time_announced = global.number[4]
+
+alias verify_answer_timer = player.timer[2]
+declare player.verify_answer_timer = 15
+
+alias drawer_traits = script_traits[0]
+
+alias hidden_score = player.number[1]
+
+alias brush_size = global.number[5]
+
+--resets the board
+function clear_board()
+	if game_started == 1 then
+		for each object with label "pixel" do
+			current_object.team = team[1]
+		end
+	end
+end
+
+
+--resets the round and makes a new player the drawer
+function setup_round()
+	last_time_announced = 90
+	game.round_timer = 90
+	temp_num = 0
+	temp_num2 = 0
+	for each player do
+		if current_player != drawer then
+			temp_num += current_player.hidden_score
+			temp_num2 += 1
+		end
+	end
+	temp_num /= temp_num2
+	drawer.score += temp_num
+	clear_board()
+	brush_size = 0
+	chosen_color = team[0]
+	for each object with label "answer_area" do
+		current_object.zone_answer = current_object.spawn_sequence
+		current_object.zone_answer *= 4
+		temp_num = rand(4)
+		current_object.zone_answer += temp_num
+	end
+	correct_zone = get_random_object("answer_area", no_object)
+	drawer.biped.kill(false)
+	drawer = no_player
+	for each player randomly do
+		current_player.verify_answer_timer = 3
+		current_player.score += current_player.hidden_score
+		current_player.time_correct.reset()
+		current_player.hidden_score = 0
+		if current_player.drawn != 1 and drawer == no_player then
+			drawer = current_player
+			current_player.drawn = 1
+		end
+	end
+	if drawer == no_player then
+		for each player do
+			current_player.drawn = 0
+		end
+		for each player randomly do
+			if drawer == no_player then
+				drawer = current_player
+				current_player.drawn = 1
+			end
+		end
+	end
+	game.play_sound_for(all_players, announce_vip_new, true)
+end
+
+
+--if damaged, pixel changes color to selected team
+for each object with label "pixel" do
+	temp_num = current_object.health
+	if temp_num < 100 then 
+		current_object.team = chosen_color
+		if brush_size == 1 then
+			temp_obj = current_object
+			for each object with label "pixel" do
+				temp_num = temp_obj.get_distance_to(current_object)
+				if temp_num < 15 then
+					current_object.team = chosen_color
+				end
+			end
+		end
+		current_object.health = 100
+	end
+end
+
+
+on local: do
+	drawer.apply_traits(drawer_traits)
+end
+
+--if damaged, objects team is used for color
+for each object with label "color" do
+    temp_num = current_object.health
+    if temp_num < 100 then
+		chosen_color = current_object.team
+        current_object.health = 100
+   end
+end
+
+--when damaged erases the board
+for each object with label "erasor" do
+    temp_num = current_object.health
+    if temp_num < 100 and game_started == 1 then
+		
+		if current_object.spawn_sequence == 0 then
+			clear_board()
+		end
+		if current_object.spawn_sequence == 1 then
+			brush_size = 1
+		end
+		if current_object.spawn_sequence == 2 then
+			brush_size = 0
+		end
+		
+		current_object.health = 100
+   end
+end
+
+--keeps the drawer in the drawing area
+for each object with label "draw_area" do
+	if not current_object.shape_contains(drawer.biped) then
+		if drawer.biped != no_object then
+			drawer.biped.attach_to(current_object, 0, 0, 0, relative)
+			drawer.biped.detach()
+			drawer.biped.copy_rotation_from(current_object, false)
+		end
+	end
+end
+
+--area where players can guess a specific answer
+for each object with label "answer_area" do
+	current_object.team = team[7]
+	for each player do
+		current_object.set_waypoint_visibility(everyone)
+		current_object.set_waypoint_range(0, 10)
+		current_object.set_shape_visibility(everyone)
+		
+		if current_player.verify_answer_timer.is_zero() and current_object.shape_contains(current_player.biped) then
+			if current_object == correct_zone then
+				game.show_message_to(current_player, announce_koth_controlled, "You are correct!")
+			end
+			if current_object != correct_zone then
+				game.show_message_to(current_player, timer_beep, "You are NOT correct.")
+			end
+			current_player.verify_answer_timer.reset()
+		end
+	end
+	
+	
+	if current_object.zone_answer == 0 then
+		current_object.set_waypoint_text("Anger")
+	end	
+	if current_object.zone_answer == 1 then
+		current_object.set_waypoint_text("Among Us")
+	end	
+	if current_object.zone_answer == 2 then
+		current_object.set_waypoint_text("Apple")
+	end	
+	if current_object.zone_answer == 3 then
+		current_object.set_waypoint_text("Arm")
+	end	
+	if current_object.zone_answer == 4 then
+		current_object.set_waypoint_text("Banana")
+	end	
+	if current_object.zone_answer == 5 then
+		current_object.set_waypoint_text("Bat Man")
+	end	
+	if current_object.zone_answer == 6 then
+		current_object.set_waypoint_text("Beach")
+	end	
+	if current_object.zone_answer == 7 then
+		current_object.set_waypoint_text("Bed")
+	end	
+	if current_object.zone_answer == 8 then
+		current_object.set_waypoint_text("Bee")
+	end	
+	if current_object.zone_answer == 9 then
+		current_object.set_waypoint_text("Bike")
+	end	
+	if current_object.zone_answer == 10 then
+		current_object.set_waypoint_text("Bird")
+	end	
+	if current_object.zone_answer == 11 then
+		current_object.set_waypoint_text("Boat")
+	end	
+	if current_object.zone_answer == 12 then
+		current_object.set_waypoint_text("Briefcase")
+	end	
+	if current_object.zone_answer == 13 then
+		current_object.set_waypoint_text("Bus")
+	end	
+	if current_object.zone_answer == 14 then
+		current_object.set_waypoint_text("Cactus")
+	end	
+	if current_object.zone_answer == 15 then
+		current_object.set_waypoint_text("Candle")
+	end	
+	if current_object.zone_answer == 16 then
+		current_object.set_waypoint_text("Cat")
+	end	
+	if current_object.zone_answer == 17 then
+		current_object.set_waypoint_text("Carrot")
+	end	
+	if current_object.zone_answer == 18 then
+		current_object.set_waypoint_text("Child")
+	end	
+	if current_object.zone_answer == 19 then
+		current_object.set_waypoint_text("Clock")
+	end	
+	if current_object.zone_answer == 20 then
+		current_object.set_waypoint_text("Computer")
+	end	
+	if current_object.zone_answer == 21 then
+		current_object.set_waypoint_text("Corn")
+	end	
+	if current_object.zone_answer == 22 then
+		current_object.set_waypoint_text("Crime")
+	end	
+	if current_object.zone_answer == 23 then
+		current_object.set_waypoint_text("Cube")
+	end	
+	if current_object.zone_answer == 24 then
+		current_object.set_waypoint_text("Death")
+	end	
+	if current_object.zone_answer == 25 then
+		current_object.set_waypoint_text("Donkey Kong")
+	end	
+	if current_object.zone_answer == 26 then
+		current_object.set_waypoint_text("Earth")
+	end	
+	if current_object.zone_answer == 27 then
+		current_object.set_waypoint_text("Elmo")
+	end	
+	if current_object.zone_answer == 28 then
+		current_object.set_waypoint_text("Eyes")
+	end	
+	if current_object.zone_answer == 29 then
+		current_object.set_waypoint_text("Family")
+	end	
+	if current_object.zone_answer == 30 then
+		current_object.set_waypoint_text("Fart")
+	end	
+	if current_object.zone_answer == 31 then
+		current_object.set_waypoint_text("Fence")
+	end	
+	if current_object.zone_answer == 32 then
+		current_object.set_waypoint_text("Fire")
+	end	
+	if current_object.zone_answer == 33 then
+		current_object.set_waypoint_text("Fish")
+	end	
+	if current_object.zone_answer == 34 then
+		current_object.set_waypoint_text("Flag")
+	end	
+	if current_object.zone_answer == 35 then
+		current_object.set_waypoint_text("Flower")
+	end	
+	if current_object.zone_answer == 36 then
+		current_object.set_waypoint_text("Frog")
+	end	
+	if current_object.zone_answer == 37 then
+		current_object.set_waypoint_text("Giraffe")
+	end	
+	if current_object.zone_answer == 38 then
+		current_object.set_waypoint_text("Grass")
+	end	
+	if current_object.zone_answer == 39 then
+		current_object.set_waypoint_text("Grunt")
+	end	
+	if current_object.zone_answer == 40 then
+		current_object.set_waypoint_text("Guitar")
+	end	
+	if current_object.zone_answer == 41 then
+		current_object.set_waypoint_text("Halo")
+	end	
+	if current_object.zone_answer == 42 then
+		current_object.set_waypoint_text("Hair")
+	end	
+	if current_object.zone_answer == 43 then
+		current_object.set_waypoint_text("Hand")
+	end	
+	if current_object.zone_answer == 44 then
+		current_object.set_waypoint_text("Hat")
+	end	
+	if current_object.zone_answer == 45 then
+		current_object.set_waypoint_text("Homer Simpson")
+	end	
+	if current_object.zone_answer == 46 then
+		current_object.set_waypoint_text("House")
+	end	
+	if current_object.zone_answer == 47 then
+		current_object.set_waypoint_text("Hulk")
+	end	
+	if current_object.zone_answer == 48 then
+		current_object.set_waypoint_text("Island")
+	end	
+	if current_object.zone_answer == 49 then
+		current_object.set_waypoint_text("Jeans")
+	end	
+	if current_object.zone_answer == 50 then
+		current_object.set_waypoint_text("Key")
+	end	
+	if current_object.zone_answer == 51 then
+		current_object.set_waypoint_text("Kick")
+	end	
+	if current_object.zone_answer == 52 then
+		current_object.set_waypoint_text("Ladder")
+	end	
+	if current_object.zone_answer == 53 then
+		current_object.set_waypoint_text("Lamp")
+	end	
+	if current_object.zone_answer == 54 then
+		current_object.set_waypoint_text("Leaf")
+	end	
+	if current_object.zone_answer == 55 then
+		current_object.set_waypoint_text("Letter")
+	end	
+	if current_object.zone_answer == 56 then
+		current_object.set_waypoint_text("Lighthouse")
+	end	
+	if current_object.zone_answer == 57 then
+		current_object.set_waypoint_text("Lightning")
+	end	
+	if current_object.zone_answer == 58 then
+		current_object.set_waypoint_text("Love")
+	end	
+	if current_object.zone_answer == 59 then
+		current_object.set_waypoint_text("Mario")
+	end	
+	if current_object.zone_answer == 60 then
+		current_object.set_waypoint_text("Master Chief")
+	end	
+	if current_object.zone_answer == 61 then
+		current_object.set_waypoint_text("McDonalds")
+	end	
+	if current_object.zone_answer == 62 then
+		current_object.set_waypoint_text("Mega Man")
+	end	
+	if current_object.zone_answer == 63 then
+		current_object.set_waypoint_text("Micky Mouse")
+	end	
+	if current_object.zone_answer == 64 then
+		current_object.set_waypoint_text("Money")
+	end	
+	if current_object.zone_answer == 65 then
+		current_object.set_waypoint_text("Moon")
+	end	
+	if current_object.zone_answer == 66 then
+		current_object.set_waypoint_text("Nose")
+	end	
+	if current_object.zone_answer == 67 then
+		current_object.set_waypoint_text("Pac Man")
+	end	
+	if current_object.zone_answer == 68 then
+		current_object.set_waypoint_text("Parent")
+	end	
+	if current_object.zone_answer == 69 then
+		current_object.set_waypoint_text("Pencil")
+	end	
+	if current_object.zone_answer == 70 then
+		current_object.set_waypoint_text("Pepper")
+	end	
+	if current_object.zone_answer == 71 then
+		current_object.set_waypoint_text("Phone")
+	end	
+	if current_object.zone_answer == 72 then
+		current_object.set_waypoint_text("Pikachu")
+	end	
+	if current_object.zone_answer == 73 then
+		current_object.set_waypoint_text("Pikachu")
+	end	
+	if current_object.zone_answer == 74 then
+		current_object.set_waypoint_text("Pizza")
+	end	
+	if current_object.zone_answer == 75 then
+		current_object.set_waypoint_text("Pyramid")
+	end	
+	if current_object.zone_answer == 76 then
+		current_object.set_waypoint_text("Quarter")
+	end	
+	if current_object.zone_answer == 77 then
+		current_object.set_waypoint_text("Rainbow")
+	end	
+	if current_object.zone_answer == 78 then
+		current_object.set_waypoint_text("Sadness")
+	end	
+	if current_object.zone_answer == 79 then
+		current_object.set_waypoint_text("Santa")
+	end	
+	if current_object.zone_answer == 80 then
+		current_object.set_waypoint_text("Sky")
+	end	
+	if current_object.zone_answer == 81 then
+		current_object.set_waypoint_text("School Bus")
+	end	
+	if current_object.zone_answer == 82 then
+		current_object.set_waypoint_text("Sleep")
+	end	
+	if current_object.zone_answer == 83 then
+		current_object.set_waypoint_text("Snake")
+	end	
+	if current_object.zone_answer == 84 then
+		current_object.set_waypoint_text("Sonic the Hedghog")
+	end	
+	if current_object.zone_answer == 85 then
+		current_object.set_waypoint_text("Spider")
+	end	
+	if current_object.zone_answer == 86 then
+		current_object.set_waypoint_text("Spongebob Squarepants")
+	end	
+	if current_object.zone_answer == 87 then
+		current_object.set_waypoint_text("Star")
+	end	
+	if current_object.zone_answer == 88 then
+		current_object.set_waypoint_text("Stop Sign")
+	end	
+	if current_object.zone_answer == 89 then
+		current_object.set_waypoint_text("Sun")
+	end	
+	if current_object.zone_answer == 90 then
+		current_object.set_waypoint_text("Sword")
+	end	
+	if current_object.zone_answer == 91 then
+		current_object.set_waypoint_text("Trash")
+	end	
+	if current_object.zone_answer == 92 then
+		current_object.set_waypoint_text("Tree")
+	end	
+	if current_object.zone_answer == 93 then
+		current_object.set_waypoint_text("Unicorn")
+	end	
+	if current_object.zone_answer == 94 then
+		current_object.set_waypoint_text("Volcano")
+	end	
+	if current_object.zone_answer == 95 then
+		current_object.set_waypoint_text("Warthog")
+	end	
+	if current_object.zone_answer == 96 then
+		current_object.set_waypoint_text("Water")
+	end	
+	if current_object.zone_answer == 97 then
+		current_object.set_waypoint_text("Watermelon")
+	end	
+	if current_object.zone_answer == 98 then
+		current_object.set_waypoint_text("Winnie the Pooh")
+	end	
+	if current_object.zone_answer == 99 then
+		current_object.set_waypoint_text("Yoshi")
+	end	
+end
+
+--Tracks if loadout camera has passed
+if game_started != 1 then
+	start_timer.set_rate(-100%)
+	if start_timer.is_zero() then
+		game_started = 1
+		setup_round()
+	end
+end
+
+--anounces to the player during the loadout cam
+for each player do
+	if current_player.player_announced != 1 then
+		current_player.announce_timer.set_rate(-100%)
+		if current_player.announce_timer.is_zero() then
+			send_incident(custom_game_start, current_player, no_player)
+			current_player.player_announced = 1
+		end
+	end
+end
+
+
+--resets the round when the timer is up
+if game_started == 1 then
+	game.round_timer.set_rate(-100%)
+	if game.round_timer.is_zero() then
+		setup_round()
+	end
+end
+
+--handles widgets
+do
+	for each player do
+		script_widget[0].set_visibility(current_player, false)
+		script_widget[1].set_visibility(current_player, false)
+		script_widget[2].set_visibility(current_player, true)
+		script_widget[3].set_visibility(current_player, true)
+		script_widget[2].set_value_text("Time left: %s     Drawer: %p", game.round_timer, drawer)
+		script_widget[3].set_value_text("Score: %n       Leader: %n", hud_player.score, leading_player.score)
+	end
+	script_widget[0].set_visibility(drawer, true)
+	script_widget[1].set_visibility(drawer, true)
+	script_widget[0].set_text("Draw the prompt below")
+	if correct_zone.zone_answer == 0 then
+		script_widget[1].set_text("Anger")
+	end	
+	if correct_zone.zone_answer == 1 then
+		script_widget[1].set_text("Among Us")
+	end	
+	if correct_zone.zone_answer == 2 then
+		script_widget[1].set_text("Apple")
+	end	
+	if correct_zone.zone_answer == 3 then
+		script_widget[1].set_text("Arm")
+	end	
+	if correct_zone.zone_answer == 4 then
+		script_widget[1].set_text("Banana")
+	end	
+	if correct_zone.zone_answer == 5 then
+		script_widget[1].set_text("Bat Man")
+	end	
+	if correct_zone.zone_answer == 6 then
+		script_widget[1].set_text("Beach")
+	end	
+	if correct_zone.zone_answer == 7 then
+		script_widget[1].set_text("Bed")
+	end	
+	if correct_zone.zone_answer == 8 then
+		script_widget[1].set_text("Bee")
+	end	
+	if correct_zone.zone_answer == 9 then
+		script_widget[1].set_text("Bike")
+	end	
+	if correct_zone.zone_answer == 10 then
+		script_widget[1].set_text("Bird")
+	end	
+	if correct_zone.zone_answer == 11 then
+		script_widget[1].set_text("Boat")
+	end	
+	if correct_zone.zone_answer == 12 then
+		script_widget[1].set_text("Briefcase")
+	end	
+	if correct_zone.zone_answer == 13 then
+		script_widget[1].set_text("Bus")
+	end	
+	if correct_zone.zone_answer == 14 then
+		script_widget[1].set_text("Cactus")
+	end	
+	if correct_zone.zone_answer == 15 then
+		script_widget[1].set_text("Candle")
+	end	
+	if correct_zone.zone_answer == 16 then
+		script_widget[1].set_text("Cat")
+	end	
+	if correct_zone.zone_answer == 17 then
+		script_widget[1].set_text("Carrot")
+	end	
+	if correct_zone.zone_answer == 18 then
+		script_widget[1].set_text("Child")
+	end	
+	if correct_zone.zone_answer == 19 then
+		script_widget[1].set_text("Clock")
+	end	
+	if correct_zone.zone_answer == 20 then
+		script_widget[1].set_text("Computer")
+	end	
+	if correct_zone.zone_answer == 21 then
+		script_widget[1].set_text("Corn")
+	end	
+	if correct_zone.zone_answer == 22 then
+		script_widget[1].set_text("Crime")
+	end	
+	if correct_zone.zone_answer == 23 then
+		script_widget[1].set_text("Cube")
+	end	
+	if correct_zone.zone_answer == 24 then
+		script_widget[1].set_text("Death")
+	end	
+	if correct_zone.zone_answer == 25 then
+		script_widget[1].set_text("Donkey Kong")
+	end	
+	if correct_zone.zone_answer == 26 then
+		script_widget[1].set_text("Earth")
+	end	
+	if correct_zone.zone_answer == 27 then
+		script_widget[1].set_text("Elmo")
+	end	
+	if correct_zone.zone_answer == 28 then
+		script_widget[1].set_text("Eyes")
+	end	
+	if correct_zone.zone_answer == 29 then
+		script_widget[1].set_text("Family")
+	end	
+	if correct_zone.zone_answer == 30 then
+		script_widget[1].set_text("Fart")
+	end	
+	if correct_zone.zone_answer == 31 then
+		script_widget[1].set_text("Fence")
+	end	
+	if correct_zone.zone_answer == 32 then
+		script_widget[1].set_text("Fire")
+	end	
+	if correct_zone.zone_answer == 33 then
+		script_widget[1].set_text("Fish")
+	end	
+	if correct_zone.zone_answer == 34 then
+		script_widget[1].set_text("Flag")
+	end	
+	if correct_zone.zone_answer == 35 then
+		script_widget[1].set_text("Flower")
+	end	
+	if correct_zone.zone_answer == 36 then
+		script_widget[1].set_text("Frog")
+	end	
+	if correct_zone.zone_answer == 37 then
+		script_widget[1].set_text("Giraffe")
+	end	
+	if correct_zone.zone_answer == 38 then
+		script_widget[1].set_text("Grass")
+	end	
+	if correct_zone.zone_answer == 39 then
+		script_widget[1].set_text("Grunt")
+	end	
+	if correct_zone.zone_answer == 40 then
+		script_widget[1].set_text("Guitar")
+	end	
+	if correct_zone.zone_answer == 41 then
+		script_widget[1].set_text("Halo")
+	end	
+	if correct_zone.zone_answer == 42 then
+		script_widget[1].set_text("Hair")
+	end	
+	if correct_zone.zone_answer == 43 then
+		script_widget[1].set_text("Hand")
+	end	
+	if correct_zone.zone_answer == 44 then
+		script_widget[1].set_text("Hat")
+	end	
+	if correct_zone.zone_answer == 45 then
+		script_widget[1].set_text("Homer Simpson")
+	end	
+	if correct_zone.zone_answer == 46 then
+		script_widget[1].set_text("House")
+	end	
+	if correct_zone.zone_answer == 47 then
+		script_widget[1].set_text("Hulk")
+	end	
+	if correct_zone.zone_answer == 48 then
+		script_widget[1].set_text("Island")
+	end	
+	if correct_zone.zone_answer == 49 then
+		script_widget[1].set_text("Jeans")
+	end	
+	if correct_zone.zone_answer == 50 then
+		script_widget[1].set_text("Key")
+	end	
+	if correct_zone.zone_answer == 51 then
+		script_widget[1].set_text("Kick")
+	end	
+	if correct_zone.zone_answer == 52 then
+		script_widget[1].set_text("Ladder")
+	end	
+	if correct_zone.zone_answer == 53 then
+		script_widget[1].set_text("Lamp")
+	end	
+	if correct_zone.zone_answer == 54 then
+		script_widget[1].set_text("Leaf")
+	end	
+	if correct_zone.zone_answer == 55 then
+		script_widget[1].set_text("Letter")
+	end	
+	if correct_zone.zone_answer == 56 then
+		script_widget[1].set_text("Lighthouse")
+	end	
+	if correct_zone.zone_answer == 57 then
+		script_widget[1].set_text("Lightning")
+	end	
+	if correct_zone.zone_answer == 58 then
+		script_widget[1].set_text("Love")
+	end	
+	if correct_zone.zone_answer == 59 then
+		script_widget[1].set_text("Mario")
+	end	
+	if correct_zone.zone_answer == 60 then
+		script_widget[1].set_text("Master Chief")
+	end	
+	if correct_zone.zone_answer == 61 then
+		script_widget[1].set_text("McDonalds")
+	end	
+	if correct_zone.zone_answer == 62 then
+		script_widget[1].set_text("Mega Man")
+	end	
+	if correct_zone.zone_answer == 63 then
+		script_widget[1].set_text("Micky Mouse")
+	end	
+	if correct_zone.zone_answer == 64 then
+		script_widget[1].set_text("Money")
+	end	
+	if correct_zone.zone_answer == 65 then
+		script_widget[1].set_text("Moon")
+	end	
+	if correct_zone.zone_answer == 66 then
+		script_widget[1].set_text("Nose")
+	end	
+	if correct_zone.zone_answer == 67 then
+		script_widget[1].set_text("Pac Man")
+	end	
+	if correct_zone.zone_answer == 68 then
+		script_widget[1].set_text("Parent")
+	end	
+	if correct_zone.zone_answer == 69 then
+		script_widget[1].set_text("Pencil")
+	end	
+	if correct_zone.zone_answer == 70 then
+		script_widget[1].set_text("Pepper")
+	end	
+	if correct_zone.zone_answer == 71 then
+		script_widget[1].set_text("Phone")
+	end	
+	if correct_zone.zone_answer == 72 then
+		script_widget[1].set_text("Pikachu")
+	end	
+	if correct_zone.zone_answer == 73 then
+		script_widget[1].set_text("Pikachu")
+	end	
+	if correct_zone.zone_answer == 74 then
+		script_widget[1].set_text("Pizza")
+	end	
+	if correct_zone.zone_answer == 75 then
+		script_widget[1].set_text("Pyramid")
+	end	
+	if correct_zone.zone_answer == 76 then
+		script_widget[1].set_text("Quarter")
+	end	
+	if correct_zone.zone_answer == 77 then
+		script_widget[1].set_text("Rainbow")
+	end	
+	if correct_zone.zone_answer == 78 then
+		script_widget[1].set_text("Sadness")
+	end	
+	if correct_zone.zone_answer == 79 then
+		script_widget[1].set_text("Santa")
+	end	
+	if correct_zone.zone_answer == 80 then
+		script_widget[1].set_text("Sky")
+	end	
+	if correct_zone.zone_answer == 81 then
+		script_widget[1].set_text("School Bus")
+	end	
+	if correct_zone.zone_answer == 82 then
+		script_widget[1].set_text("Sleep")
+	end	
+	if correct_zone.zone_answer == 83 then
+		script_widget[1].set_text("Snake")
+	end	
+	if correct_zone.zone_answer == 84 then
+		script_widget[1].set_text("Sonic the Hedghog")
+	end	
+	if correct_zone.zone_answer == 85 then
+		script_widget[1].set_text("Spider")
+	end	
+	if correct_zone.zone_answer == 86 then
+		script_widget[1].set_text("Spongebob Squarepants")
+	end	
+	if correct_zone.zone_answer == 87 then
+		script_widget[1].set_text("Star")
+	end	
+	if correct_zone.zone_answer == 88 then
+		script_widget[1].set_text("Stop Sign")
+	end	
+	if correct_zone.zone_answer == 89 then
+		script_widget[1].set_text("Sun")
+	end	
+	if correct_zone.zone_answer == 90 then
+		script_widget[1].set_text("Sword")
+	end	
+	if correct_zone.zone_answer == 91 then
+		script_widget[1].set_text("Trash")
+	end	
+	if correct_zone.zone_answer == 92 then
+		script_widget[1].set_text("Tree")
+	end	
+	if correct_zone.zone_answer == 93 then
+		script_widget[1].set_text("Unicorn")
+	end	
+	if correct_zone.zone_answer == 94 then
+		script_widget[1].set_text("Volcano")
+	end	
+	if correct_zone.zone_answer == 95 then
+		script_widget[1].set_text("Warthog")
+	end	
+	if correct_zone.zone_answer == 96 then
+		script_widget[1].set_text("Water")
+	end	
+	if correct_zone.zone_answer == 97 then
+		script_widget[1].set_text("Watermelon")
+	end	
+	if correct_zone.zone_answer == 98 then
+		script_widget[1].set_text("Winnie the Pooh")
+	end	
+	if correct_zone.zone_answer == 99 then
+		script_widget[1].set_text("Yoshi")
+	end	
+end
+
+--secretly gives players points for being the correct zone and handles the verify timer
+for each player do
+	if correct_zone.shape_contains(current_player.biped) and current_player != drawer then
+		current_player.time_correct.set_rate(-100%)
+		if current_player.time_correct.is_zero() then
+			current_player.time_correct.reset()
+			current_player.hidden_score += 1
+		end
+	end
+	current_player.verify_answer_timer.set_rate(-100%)
+end
+
+--determine who the leading player is
+do
+	temp_num = 1
+	for each player do
+		if current_player.score >= temp_num then
+			leading_player = current_player
+			temp_num = current_player.score
+		end
+	end
+end
+
+--handle if drawer quits
+if drawer.killer_type_is(quit) then
+	setup_round()
+end
+
+for each player do
+    current_player.set_round_card_title("Draw or guess what is drawn! Made by Sofasleeper5. \n Contact DirtyHalt#8343 on Discord for inquiries.")
+end
